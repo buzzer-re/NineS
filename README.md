@@ -1,20 +1,35 @@
 # Nines (9S) - POC
 
 
-This project is result of an experimention on code injection techniques on the PlayStation 5, since it's not possible to allocate executable memory with calls like `mmap` and other techniques like abusing `JIT` memory area to write shellcode into is not available to every process.
-
+This project is the result of an experiment in code injection techniques on the PlayStation 5. Since it's not possible to allocate executable memory using calls like `mmap`, and other techniques, such as abusing the `JIT` memory area to write shellcode, are not available to every process, alternative methods are explored.
 
 ## Idea
 
-The idea is rather simple, with Kernel R/W primitives into the `.data` section one is possible to elevate process specific privileges, such the AuthorityID which give ability to debug other processes with `ptrace`, with this power in hand is possible to invoke remote functions to load a library inside the process, with good space of executable memory area.
+The concept is simple. By using Kernel R/W primitives in the kernel `.data` section, one can elevate process-specific privileges, such as the AuthorityID, which allows debugging of other processes via `ptrace`. 
 
-After loaded, one can remove all the existing data and write a shellcode or load a ELF file into it. It's similar to the Windows Process Hollowing technique. 
+With this power, it is possible to invoke remote functions to load a library into the process, which provides a suitable space for executable memory.
 
-In order to trigger the shellcode, we remotly resolve and call the function `pthread_create` to initialize the shellcode.
+Once the library is loaded, it’s possible to remove all existing data and either write shellcode or load an ELF file into the allocated memory. This technique is similar to the Windows Process Hollowing method.
 
+To trigger the shellcode, we remotely resolve and call the `pthread_create` function to initialize the shellcode.
+
+
+## Example
+
+Injecting into `SceShellUI` (PS5 interface)
+
+![](assets/tool_test.png)
+
+Logging from inside the SceShellUI
+
+![](assets/shellcode_msg.png)
+
+
+## Disclamer
+
+This is just a POC (Proof of Concept) project. There are many areas for improvement, and you may use this as a base for adapting it to your own project.
 
 ## Resources
-
 
 - [John Törnblom amazing SDK](https://github.com/ps5-payload-dev/sdk)
 - [PS5 gdb server project](https://github.com/ps5-payload-dev/gdbsrv)
