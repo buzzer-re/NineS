@@ -1,0 +1,19 @@
+{
+    "files.associations": {
+        "proc.h": "c",
+        "freebsd-helper.h": "c",
+        "types.h": "c",
+        "kernel.h": "c",
+        "syscall.h": "c",
+        "ucred.h": "c",
+        "payload.h": "c",
+        "mdbg.h": "c",
+        "parasite.h": "c",
+        "stdbool.h": "c",
+        "shellcode.h": "c",
+        "ptrace.h": "c",
+        "nid.h": "c",
+        "pt.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "disabled"
+}
