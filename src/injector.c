@@ -119,6 +119,7 @@ int write_parasite_loader(struct proc* proc)
         uint8_t* nuke_buff = (uint8_t*) malloc(module->sections[i].size);
         memset(nuke_buff, 0xCC, module->sections[i].size);
         mdbg_copyin(proc->pid, nuke_buff, module->sections[i].vaddr, module->sections[i].size);
+        free(nuke_buff);
     }
 
 
