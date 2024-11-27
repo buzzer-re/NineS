@@ -13,10 +13,9 @@
 #include <sys/mman.h>
 #include <pthread.h>
 
-//
-// TODO: Choose a better candidate (Maybe ?) this one has at least 2MB of free exec mem space
-//
-#define TARGET_SPRX "libicu.sprx"
+
+#define TARGET_SPRX "/system_ex/common_ex/lib/libSceNKWebKit.sprx"
+#define TARGET_SPRX_BASENAME "libSceNKWebKit.sprx"
 
 
 typedef struct __scefunctions
@@ -39,6 +38,7 @@ uint32_t get_shellcode_size();
 //
 int write_parasite_loader(struct proc* proc);
 int create_remote_thread(pid_t pid, uintptr_t target_address, uintptr_t parameters);
+module_info_t* load_remote_library(pid_t pid, const char* library_path, const char* library_name);
 void init_remote_function_pointers(pid_t pid);
 // void shellcode_start(pid_t pid, uint64_t target_address);
 

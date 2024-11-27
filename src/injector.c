@@ -67,7 +67,6 @@ void init_remote_function_pointers(pid_t pid)
     nid_encode("sceKernelDebugOutText", nid);
     sce_functions.sceKernelDebugOutText = (void*) pt_resolve(pid, nid);
 
-    // printf("pthread_create: 0x%p\nremote_pthread_join 0x%p\n", remote_pthread_create, remote_pthread_join);
 }
 
 
@@ -84,21 +83,19 @@ int write_parasite_loader(struct proc* proc)
     attached = true;
 
     init_remote_function_pointers(proc->pid);
-    intptr_t sce_kernel_load_start_module = pt_resolve(proc->pid, nid_sce_kernel_load_start_module);
-    
 
     printf("Loading "TARGET_SPRX" inside PID %d...\n", proc->pid);
-    pt_call(proc->pid, sce_kernel_load_start_module, TARGET_SPRX);
-    module_info_t* module = get_module_handle(proc->pid, TARGET_SPRX);
+    module_info_t* module = load_remote_library(proc->pid, TARGET_SPRX, TARGET_SPRX_BASENAME);
 
     if (!module)
     {
-        printf("Unable to load "TARGET_SPRX"Into the target process!, aborting...\n");
+        printf("Unable to load "TARGET_SPRX" Into the target process!, aborting...\n");
+        list_proc_modules(proc);
         status = false;
-        goto exit;
+        goto detach;
     }
 
-    printf("Found libcu, starting module hollowing...\n");
+    printf("Found " TARGET_SPRX_BASENAME", starting module hollowing...\n");
 
     //
     // Hollow the module
@@ -144,18 +141,75 @@ int write_parasite_loader(struct proc* proc)
     intptr_t remote_sce_functions = pt_mmap(proc->pid, 0, sizeof(SCEFunctions), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     mdbg_copyin(proc->pid, &sce_functions, remote_sce_functions, sizeof(sce_functions));
 
+    puts("Triggering shellcode...");
     //
     // Create a thread inside the target process
     // 
     create_remote_thread(proc->pid, text_section->vaddr, remote_sce_functions);
 
-    pt_detach(proc->pid);
 
 clean:
     free(module);
 
+detach:
+    pt_detach(proc->pid);
+
 exit:
     return status;
+}
+
+//
+// We can't stuck sceshellui for too long or the system will kill it's process, so we will load the library in a separated thread
+//
+module_info_t* load_remote_library(pid_t pid, const char* library_path, const char* library_name)
+{
+    if (!attached)
+    {
+        if (pt_attach(pid) < 0)
+        {
+            printf("load_remote_library: Failed to attach PID %d\n", pid);
+            return NULL;
+        }
+    }
+
+    intptr_t library_str = pt_mmap(pid, 0, 0x100, PROT_WRITE | PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    mdbg_copyin(pid, library_path, library_str, strlen(library_path) + 1);
+
+    //
+    // Run the module loading in a separated thread
+    //
+    intptr_t sce_kernel_load_start_module = pt_resolve(pid, nid_sce_kernel_load_start_module);
+    create_remote_thread(pid, sce_kernel_load_start_module, library_str);
+    //
+    // Now we detach, sleep a little and attach again
+    //
+    pt_detach(pid);
+
+    int retries = 0;
+    int max_retries = 100;
+    module_info_t* module = NULL;
+
+    while (retries <= max_retries)
+    {
+        module = get_module_handle(pid, library_name);
+        if (!module)
+        {
+            usleep(500);
+        } else
+        {
+            break;
+        }
+        retries++;
+    }
+    
+    if (!module)
+    {
+        printf("Unable to load %s into PID %d!\n", library_name, pid);
+    }
+
+    pt_attach(pid);
+
+    return module;
 }
 
 
@@ -188,7 +242,6 @@ int create_remote_thread(pid_t pid, uintptr_t target_address, uintptr_t paramete
     // Done, we don't have to wait (join)
     //
     return true;
-    
 }
 
 

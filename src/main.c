@@ -12,10 +12,6 @@
 
 #define DUMP_SIZE 0x100
 
-
-#define TARGET_SPRX "libicu.sprx"
-
-
 int main(int argc, char const *argv[])
 {
 
@@ -24,6 +20,7 @@ int main(int argc, char const *argv[])
     struct proc* target_proc = find_proc_by_name("SceShellUI");
     if (target_proc)
     {
+        // list_proc_modules(target_proc);
         write_parasite_loader(target_proc);
     }   
 

@@ -13,7 +13,8 @@
         "shellcode.h": "c",
         "ptrace.h": "c",
         "nid.h": "c",
-        "pt.h": "c"
+        "pt.h": "c",
+        "injector.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }
