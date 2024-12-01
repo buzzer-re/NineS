@@ -14,7 +14,10 @@
         "ptrace.h": "c",
         "nid.h": "c",
         "pt.h": "c",
-        "injector.h": "c"
+        "injector.h": "c",
+        "elfldr.h": "c",
+        "ios": "c",
+        "__locale": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }
