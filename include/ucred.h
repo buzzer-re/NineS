@@ -14,3 +14,5 @@
 
 // uintptr_t get_current_ucred();
 void set_ucred_to_debugger();
+uint8_t* jailbreak_process(pid_t pid);
+void jail_process(pid_t pid, uint8_t* ucred);

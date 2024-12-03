@@ -90,7 +90,8 @@ void list_proc_modules(struct proc* proc)
 
             syscall(SYS_dl_get_info_2, proc->pid, 1, handles[i], &mod_info);
 
-            printf("%s\n", mod_info.filename);
+            printf("%s - ", mod_info.filename);
+            printf("%#02lx\n", mod_info.init);
         }
         
         free(handles);

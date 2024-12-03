@@ -1,24 +1,30 @@
 #include "../include/injector.h"
 
 int attached = false;
-void* remote_malloc = NULL;
-void* remote_pthread_create = NULL;
+intptr_t remote_malloc = 0;
+intptr_t remote_pthread_create = 0;
 void* remote_pthread_join = NULL;
 SCEFunctions sce_functions = {0};
 
 
+//
+// Shellcode used for debugging, not so useful for ELF loading
+//
 int __attribute__((section(".stager_shellcode$1")))  stager(SCEFunctions* functions)
 {
     
-    char hello[6]; //;= {'h', 'e', 'l', 'l', 'o', '\n'};
+    char hello[7];
     hello[0] = 'h';
     hello[1] = 'e';
     hello[2] = 'l';
     hello[3] = 'l';
     hello[4] = 'o';
     hello[5] = '\n';
+    hello[6] = '\x00';
 
-    functions->sceKernelDebugOutText(0, hello); 
+    functions->sceKernelDebugOutText(0, hello);
+    functions->elf_main(functions->payload_args);
+    functions->sceKernelDebugOutText(0, hello);
 
     return 100;
 }
@@ -53,25 +59,34 @@ void init_remote_function_pointers(pid_t pid)
             return;
         }
     }
+
+    char nid[12] = {0};
     //
     // Injector/loader specifics
     //
-    remote_pthread_create = (void*) pt_resolve(pid, nid_pthread_create);
-    remote_pthread_join = (void*) pt_resolve(pid, nid_pthread_join);
+    nid_encode("malloc", nid);
+    remote_malloc = pt_resolve(pid, nid);
+    nid_encode("pthread_create", nid);
+    remote_pthread_create = pt_resolve(pid, nid);
+    nid_encode("nid_pthread_join", nid);
+    remote_pthread_join = (void*) pt_resolve(pid, nid);
 
     //
     // Shellcode function pointers
     //
-
-    char nid[12];
     nid_encode("sceKernelDebugOutText", nid);
     sce_functions.sceKernelDebugOutText = (void*) pt_resolve(pid, nid);
+
+
 
 }
 
 
-int write_parasite_loader(struct proc* proc)
-{
+int inject_elf(struct proc* proc)
+{   
+    puts("[+] Elevating injector...[+]\n");
+
+    set_ucred_to_debugger();
     int status = true;
     if (pt_attach(proc->pid) < 0)
     {
@@ -80,82 +95,56 @@ int write_parasite_loader(struct proc* proc)
         goto exit;
     }
 
+    printf("[+] Attached to %d! [+]\n", proc->pid);
     attached = true;
 
     init_remote_function_pointers(proc->pid);
 
-    printf("Loading "TARGET_SPRX" inside PID %d...\n", proc->pid);
-    module_info_t* module = load_remote_library(proc->pid, TARGET_SPRX, TARGET_SPRX_BASENAME);
-
-    if (!module)
+    printf("[+] Elevating %d to make usage of jit_shm...[+]\n", proc->pid);
+    //
+    // Elevate it to make usage of jitshm
+    //
+    uint8_t* ucred_bkp = jailbreak_process(proc->pid);
+    
+    if (!ucred_bkp)
     {
-        printf("Unable to load "TARGET_SPRX" Into the target process!, aborting...\n");
-        list_proc_modules(proc);
-        status = false;
+        printf("Unable to elevate PID %d!\n", proc->pid);
+        goto exit;
+    }
+
+    printf("[+] Loading ELF on %d...[+]\n", proc->pid);
+    intptr_t entry = elfldr_load(proc->pid, (uint8_t*) elf_test);
+
+    if (entry == -1)
+    {
+        printf("Failed to load ELF!\n");
         goto detach;
     }
-
-    printf("Found " TARGET_SPRX_BASENAME", starting module hollowing...\n");
-
     //
-    // Hollow the module
+    // Restore
     //
+    jail_process(proc->pid, ucred_bkp);
+    free(ucred_bkp);
 
-    module_section_t* text_section = NULL;
-    
-    for (ssize_t i = 0; i < MODULE_INFO_MAX_SECTIONS; ++i)
-    {
-
-        if (module->sections[i].prot & PROT_EXEC)
-        {
-            text_section = &module->sections[i];
-            printf(".text => %#02lx available space %lu bytes!\n", text_section->vaddr, text_section->size);
-        }
-
-        printf("Nuking section %#02lx\n", module->sections[i].vaddr);
-        uint8_t* nuke_buff = (uint8_t*) malloc(module->sections[i].size);
-        memset(nuke_buff, 0xCC, module->sections[i].size);
-        mdbg_copyin(proc->pid, nuke_buff, module->sections[i].vaddr, module->sections[i].size);
-        free(nuke_buff);
-    }
-
-
-    if (!text_section)
-    {
-        printf("Unable to find .text section! Aborting...\n");
-        goto clean;
-    }
-
-
-    //
-    // Copy shellcode
-    //
-    
-    printf("Copying shellcode to %#02lx...\n", text_section->vaddr);
-    mdbg_copyin(proc->pid, stager, text_section->vaddr, get_shellcode_size());
-
-    //
+    intptr_t args = elfldr_payload_args(proc->pid);
+    //  
     // Copy shellcode thread parameters
     //
-
-    intptr_t remote_sce_functions = pt_mmap(proc->pid, 0, sizeof(SCEFunctions), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    mdbg_copyin(proc->pid, &sce_functions, remote_sce_functions, sizeof(sce_functions));
-
-    puts("Triggering shellcode...");
+    printf("[+] ELF entrypoint: %#02lx [+]\n[+] Payload Args: %#02lx [+]\n", entry, args);
+    puts("[+] Triggering entrypoint... [+]\n");
     //
     // Create a thread inside the target process
     // 
-    create_remote_thread(proc->pid, text_section->vaddr, remote_sce_functions);
-
-
-clean:
-    free(module);
+    create_remote_thread(proc->pid, entry, args);
+    
+    puts("[+] ELF injection finished! [+]");
 
 detach:
     pt_detach(proc->pid);
 
 exit:
     return status;
+
 }
 
 //
@@ -172,7 +161,8 @@ module_info_t* load_remote_library(pid_t pid, const char* library_path, const ch
         }
     }
 
-    intptr_t library_str = pt_mmap(pid, 0, 0x100, PROT_WRITE | PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    // intptr_t library_str = pt_call(pid, 0, 0x100, PROT_WRITE | PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    intptr_t library_str = pt_call(pid, remote_malloc, strlen(library_name) + 1);
     mdbg_copyin(pid, library_path, library_str, strlen(library_path) + 1);
 
     //
@@ -180,6 +170,8 @@ module_info_t* load_remote_library(pid_t pid, const char* library_path, const ch
     //
     intptr_t sce_kernel_load_start_module = pt_resolve(pid, nid_sce_kernel_load_start_module);
     create_remote_thread(pid, sce_kernel_load_start_module, library_str);
+
+    printf("sce_kernel_load_start_module: %#02lx\n", sce_kernel_load_start_module);
     //
     // Now we detach, sleep a little and attach again
     //
@@ -224,8 +216,7 @@ int create_remote_thread(pid_t pid, uintptr_t target_address, uintptr_t paramete
         }
     }
 
-
-    void* pthread = (void*) pt_mmap(pid, 0, sizeof(pthread_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    intptr_t pthread = pt_call(pid, remote_malloc, sizeof(pthread_t));
     if (!pthread)
     {
         printf("Unable to allocate memory for pthread pointer!\n");
@@ -233,15 +224,9 @@ int create_remote_thread(pid_t pid, uintptr_t target_address, uintptr_t paramete
     }
 
     //
-    // Create remote thread
+    // We don't have to wait (join), otherwise we would block the whole target
     //
-    
-    pt_call(pid, (intptr_t) remote_pthread_create, pthread, NULL, target_address, parameters);
-    printf("Created remote thread at %#02lx\n", target_address);
-    //
-    // Done, we don't have to wait (join)
-    //
-    return true;
+    return pt_call(pid, remote_pthread_create, pthread, 0, target_address, parameters);;
 }
 
 

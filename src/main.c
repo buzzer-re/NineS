@@ -14,15 +14,13 @@
 
 int main(int argc, char const *argv[])
 {
-
-    set_ucred_to_debugger();
-
     struct proc* target_proc = find_proc_by_name("SceShellUI");
     if (target_proc)
     {
+        // puts("LISTANDO MODULOS!!!!");
         // list_proc_modules(target_proc);
-        write_parasite_loader(target_proc);
-    }   
+        inject_elf(target_proc);
+    }       
 
     return 0;
 }

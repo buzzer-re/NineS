@@ -2,9 +2,12 @@
 
 #include "proc.h"
 #include "pt.h"
+#include "elfldr.h"
 #include "ps5/mdbg.h"
 #include "ps5/nid.h"
 #include "nid.h"
+#include "hello_world.h"
+#include "ucred.h"
 
 #include <stdbool.h>
 #include <sys/types.h>
@@ -21,6 +24,9 @@
 typedef struct __scefunctions
 {
     int (*sceKernelDebugOutText)(int channel, const char *msg);
+    int (*elf_main)(void* payload_args);
+
+    void* payload_args;
     // int (*sceKernelLoadStartModule)(const char *module_file_name, int args, const void *argp, int flags, void *opt, int *pRes);    
 
 } SCEFunctions;
@@ -28,15 +34,13 @@ typedef struct __scefunctions
 
 extern int attached;
 extern SCEFunctions sce_functions;
-extern void* remote_pthread_create;
-extern void* remote_pthread_join;
 
 int stager(SCEFunctions* functions);
 uint32_t get_shellcode_size();
 //
 // Loader specifics
 //
-int write_parasite_loader(struct proc* proc);
+int inject_elf(struct proc* proc);
 int create_remote_thread(pid_t pid, uintptr_t target_address, uintptr_t parameters);
 module_info_t* load_remote_library(pid_t pid, const char* library_path, const char* library_name);
 void init_remote_function_pointers(pid_t pid);
