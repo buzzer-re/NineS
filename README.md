@@ -1,5 +1,4 @@
-# Nines (9S) - POC
-
+# YoRHa No.9 Type S -- 9S
 
 9S is an ELF injector for the PS5 that utilizes the JIT memory space (which is executable) to manually map an ELF file. This method is necessary because allocating executable memory with functions like `mmap` is not possible.
 
