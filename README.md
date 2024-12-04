@@ -12,11 +12,26 @@ Since not every process supports JIT, the target process is also elevated before
 
 ## Building
 
-To build the project, you will need [John Törnblom's SDK](https://github.com/ps5-payload-dev/sdk). After installation, simply edit the Makefile with the correct PS5 IP address.
+To build the project, you will need [John Törnblom's SDK](https://github.com/ps5-payload-dev/sdk). After installation, simply edit the Makefile with the correct PS5 IP address:
+
+
+Use a simple `make` to build the project:
+
+> make
+
+To send to the PS5 just hit:
+
+> make test
 
 ## Using
 
-Currently, the project injects a simple "Hello World" binary into the target process, which can be found in `include/hello_world.h`. You can easily generate this file using tools such as `radare2`.
+The injector will run a TCP server on port `9033`. The protocol is simple; it waits for a process target name and an ELF file to be sent in the same packet. The process name is limited to 256 characters, so it must be 256 bytes plus the ELF file. You can use `send_injection_elf.py` to facilitate your work:
+
+> python3 send_injection_elf.py SceShellUI hello_world.elf PS5_IP_ADDRESS
+
+
+![](assets/elf_injection_example.png)
+
 
 
 ## Extra - Initial idea

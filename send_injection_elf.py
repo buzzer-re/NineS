@@ -4,7 +4,6 @@ import struct
 import os
 
 MAX_PROC_NAME = 0x100  
-SERVER_IP = "192.168.88.11" 
 SERVER_PORT = 9033  
 
 
@@ -32,7 +31,8 @@ def main():
     parser = argparse.ArgumentParser(description="Send process name and data to a remote server.")
     parser.add_argument("name", type=str, help="The name of the process.")
     parser.add_argument("path", type=str, help="The path to the data file.")
-    
+    parser.add_argument("ip", type=str, help="PS5 IP address")
+
     args = parser.parse_args()
 
     if not os.path.exists(args.path):
@@ -46,7 +46,7 @@ def main():
     injector_data = build_injector_data(args.name, data)
 
     # Send the data to the server
-    send_data_to_server(injector_data, SERVER_IP, SERVER_PORT)
+    send_data_to_server(injector_data, args.ip, SERVER_PORT)
 
 if __name__ == "__main__":
     main()
