@@ -14,7 +14,7 @@
 # along with this program; see the file COPYING. If not see
 # <http://www.gnu.org/licenses/>.
 
-PS5_HOST ?= 192.168.88.11
+PS5_HOST ?= ps5
 PS5_PORT ?= 9021
 
 ifdef PS5_PAYLOAD_SDK

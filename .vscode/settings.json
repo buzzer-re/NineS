@@ -21,7 +21,14 @@
         "notify.h": "c",
         "stdio.h": "c",
         "server.h": "c",
-        "socket.h": "c"
+        "socket.h": "c",
+        "thread": "c",
+        "in.h": "c",
+        "array": "c",
+        "span": "c",
+        "string": "c",
+        "string_view": "c",
+        "vector": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }

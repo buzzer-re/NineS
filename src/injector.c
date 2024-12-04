@@ -82,7 +82,7 @@ void init_remote_function_pointers(pid_t pid)
 }
 
 
-int inject_elf(struct proc* proc)
+int inject_elf(struct proc* proc, void* elf)
 {   
     puts("[+] Elevating injector...[+]\n");
 
@@ -113,22 +113,13 @@ int inject_elf(struct proc* proc)
     }
 
     printf("[+] Loading ELF on %d...[+]\n", proc->pid);
-    intptr_t entry = elfldr_load(proc->pid, (uint8_t*) elf_test);
+    intptr_t entry = elfldr_load(proc->pid, (uint8_t*) elf);
 
     if (entry <= 0)
     {
         printf("[-] Failed to load ELF! [-]\n");
         goto detach;
     }
-
-    uint8_t dump[0x100];
-
-    mdbg_copyout(proc->pid, entry, dump, 0x100);
-    for (ssize_t i = 0; i < 0x100; ++i)
-    {
-        printf("%x", dump[i]);
-    }
-    puts("");
     //
     // Restore
     //
