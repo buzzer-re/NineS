@@ -239,7 +239,7 @@ elfldr_load(pid_t pid, uint8_t *elf) {
     flags |= MAP_FIXED;
   } else {
     klog_puts("elfldr_load: ELF type not supported");
-    return 0;
+    // return 0;
   }
 
   // Reserve an address space of sufficient size.

@@ -108,18 +108,27 @@ int inject_elf(struct proc* proc)
     
     if (!ucred_bkp)
     {
-        printf("Unable to elevate PID %d!\n", proc->pid);
-        goto exit;
+        printf("[-] Unable to elevate PID %d! [-] \n", proc->pid);
+        goto detach;
     }
 
     printf("[+] Loading ELF on %d...[+]\n", proc->pid);
     intptr_t entry = elfldr_load(proc->pid, (uint8_t*) elf_test);
 
-    if (entry == -1)
+    if (entry <= 0)
     {
-        printf("Failed to load ELF!\n");
+        printf("[-] Failed to load ELF! [-]\n");
         goto detach;
     }
+
+    uint8_t dump[0x100];
+
+    mdbg_copyout(proc->pid, entry, dump, 0x100);
+    for (ssize_t i = 0; i < 0x100; ++i)
+    {
+        printf("%x", dump[i]);
+    }
+    puts("");
     //
     // Restore
     //
@@ -142,6 +151,7 @@ int inject_elf(struct proc* proc)
 detach:
     pt_detach(proc->pid);
 
+    puts("[+] Detached [+]");
 exit:
     return status;
 

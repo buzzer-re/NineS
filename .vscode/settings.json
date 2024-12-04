@@ -17,7 +17,11 @@
         "injector.h": "c",
         "elfldr.h": "c",
         "ios": "c",
-        "__locale": "c"
+        "__locale": "c",
+        "notify.h": "c",
+        "stdio.h": "c",
+        "server.h": "c",
+        "socket.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }
