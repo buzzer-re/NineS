@@ -82,7 +82,7 @@ void init_remote_function_pointers(pid_t pid)
 }
 
 
-int inject_elf(struct proc* proc)
+int inject_elf(struct proc* proc, void* elf)
 {   
     puts("[+] Elevating injector...[+]\n");
 
@@ -108,16 +108,16 @@ int inject_elf(struct proc* proc)
     
     if (!ucred_bkp)
     {
-        printf("Unable to elevate PID %d!\n", proc->pid);
-        goto exit;
+        printf("[-] Unable to elevate PID %d! [-] \n", proc->pid);
+        goto detach;
     }
 
     printf("[+] Loading ELF on %d...[+]\n", proc->pid);
-    intptr_t entry = elfldr_load(proc->pid, (uint8_t*) elf_test);
+    intptr_t entry = elfldr_load(proc->pid, (uint8_t*) elf);
 
-    if (entry == -1)
+    if (entry <= 0)
     {
-        printf("Failed to load ELF!\n");
+        printf("[-] Failed to load ELF! [-]\n");
         goto detach;
     }
     //
@@ -142,6 +142,7 @@ int inject_elf(struct proc* proc)
 detach:
     pt_detach(proc->pid);
 
+    puts("[+] Detached [+]");
 exit:
     return status;
 

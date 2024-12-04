@@ -101,10 +101,6 @@ enum uio_seg {
         UIO_USERISPACE          /* from user I space */
 };
 
-struct iovec {
-        uint64_t iov_base;
-        size_t iov_len;
-};
 
 TYPE_BEGIN(struct vm_map_entry, 0x167);
         TYPE_FIELD(struct vm_map_entry *prev, 0);
