@@ -12,21 +12,12 @@ SCEFunctions sce_functions = {0};
 //
 int __attribute__((section(".stager_shellcode$1")))  stager(SCEFunctions* functions)
 {
-    
-    char hello[7];
-    hello[0] = 'h';
-    hello[1] = 'e';
-    hello[2] = 'l';
-    hello[3] = 'l';
-    hello[4] = 'o';
-    hello[5] = '\n';
-    hello[6] = '\x00';
+    pthread_t thread;
+    functions->pthread_create_ptr(&thread, 0, (void *(*)(void *)) functions->elf_main, functions->payload_args);
 
-    functions->sceKernelDebugOutText(0, hello);
-    functions->elf_main(functions->payload_args);
-    functions->sceKernelDebugOutText(0, hello);
+    asm("int3");
 
-    return 100;
+    return 0;
 }
 
 //
@@ -76,6 +67,7 @@ void init_remote_function_pointers(pid_t pid)
     //
     nid_encode("sceKernelDebugOutText", nid);
     sce_functions.sceKernelDebugOutText = (void*) pt_resolve(pid, nid);
+    sce_functions.pthread_create_ptr = (void*) remote_pthread_create;
 
 
 
@@ -88,6 +80,10 @@ int inject_elf(struct proc* proc, void* elf)
 
     set_ucred_to_debugger();
     int status = true;
+    uint64_t sce_ptr_mem;
+    uint64_t shellcode_size = get_shellcode_size();
+    uint8_t* original_code = malloc(shellcode_size);
+
     if (pt_attach(proc->pid) < 0)
     {
         printf("Error attaching into PID: %d\n", proc->pid);
@@ -127,21 +123,42 @@ int inject_elf(struct proc* proc, void* elf)
     free(ucred_bkp);
 
     intptr_t args = elfldr_payload_args(proc->pid);
+    printf("[+] ELF entrypoint: %#02lx [+]\n[+] Payload Args: %#02lx [+]\n", entry, args);
+
     //  
     // Copy shellcode thread parameters
     //
-    printf("[+] ELF entrypoint: %#02lx [+]\n[+] Payload Args: %#02lx [+]\n", entry, args);
+    
+    module_info_t* mod = get_module_handle(proc->pid, "eboot.bin");
+    sce_functions.elf_main = (void*) entry;
+    sce_functions.payload_args = (void*) args;
+
+    //
+    // Store original .init code and overwrite with the stager
+    //
+    mdbg_copyout(proc->pid, mod->init, original_code, shellcode_size);
+    mdbg_copyin(proc->pid, stager, mod->init, shellcode_size);
+    //
+    // Write the sce functions data
+    //
+    sce_ptr_mem = pt_call(proc->pid, remote_malloc, sizeof(SCEFunctions));
+    mdbg_copyin(proc->pid, &sce_functions, sce_ptr_mem, sizeof(SCEFunctions));
+
     puts("[+] Triggering entrypoint... [+]\n");
     //
-    // Create a thread inside the target process
-    // 
-    create_remote_thread(proc->pid, entry, args);
-    
-    puts("[+] ELF injection finished! [+]");
+    // Call until hit a breakpoint
+    //
+    pt_call2(proc->pid, mod->init, sce_ptr_mem);
+    // mdbg_copyin(proc->pid, original_code, mod->init, shellcode_size);
 
-detach:
     pt_detach(proc->pid);
 
+    puts("[+] ELF injection finished! [+]");
+    //
+    // Restore stager
+    //
+
+detach:
     puts("[+] Detached [+]");
 exit:
     return status;
@@ -227,7 +244,7 @@ int create_remote_thread(pid_t pid, uintptr_t target_address, uintptr_t paramete
     //
     // We don't have to wait (join), otherwise we would block the whole target
     //
-    return pt_call(pid, remote_pthread_create, pthread, 0, target_address, parameters);;
+    return pt_call(pid, remote_pthread_create, pthread, 0, target_address, parameters);
 }
 
 

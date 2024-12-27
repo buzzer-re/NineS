@@ -28,7 +28,8 @@
         "span": "c",
         "string": "c",
         "string_view": "c",
-        "vector": "c"
+        "vector": "c",
+        "mman.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }

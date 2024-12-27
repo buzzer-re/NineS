@@ -27,6 +27,7 @@ typedef struct __scefunctions
     int (*elf_main)(void* payload_args);
 
     void* payload_args;
+    int (*pthread_create_ptr)(pthread_t *, const pthread_addr_t*, void*(*)(void*), void*);
     // int (*sceKernelLoadStartModule)(const char *module_file_name, int args, const void *argp, int flags, void *opt, int *pRes);    
 
 } SCEFunctions;

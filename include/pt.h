@@ -34,6 +34,7 @@ int pt_getint(pid_t pid, intptr_t addr);
 long pt_syscall(pid_t pid, int sysno, ...);
 
 long pt_call(pid_t pid, intptr_t addr, ...);
+long pt_call2(pid_t pid, intptr_t addr, ...);
 
 intptr_t pt_resolve(pid_t pid, const char* nid);
 int pt_backtrace(pid_t pid, char* addr2line, size_t size);
