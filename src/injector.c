@@ -96,18 +96,6 @@ int inject_elf(struct proc* proc, void* elf)
 
     init_remote_function_pointers(proc->pid);
 
-    printf("[+] Elevating %d to make usage of jit_shm...[+]\n", proc->pid);
-    //
-    // Elevate it to make usage of jitshm
-    //
-    uint8_t* ucred_bkp = jailbreak_process(proc->pid);
-    
-    if (!ucred_bkp)
-    {
-        printf("[-] Unable to elevate PID %d! [-] \n", proc->pid);
-        goto detach;
-    }
-
     printf("[+] Loading ELF on %d...[+]\n", proc->pid);
     intptr_t entry = elfldr_load(proc->pid, (uint8_t*) elf);
 
@@ -116,11 +104,6 @@ int inject_elf(struct proc* proc, void* elf)
         printf("[-] Failed to load ELF! [-]\n");
         goto detach;
     }
-    //
-    // Restore
-    //
-    jail_process(proc->pid, ucred_bkp);
-    free(ucred_bkp);
 
     intptr_t args = elfldr_payload_args(proc->pid);
     printf("[+] ELF entrypoint: %#02lx [+]\n[+] Payload Args: %#02lx [+]\n", entry, args);
