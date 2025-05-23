@@ -7,9 +7,7 @@ void* remote_pthread_join = NULL;
 SCEFunctions sce_functions = {0};
 
 
-//
-// Shellcode used for debugging, not so useful for ELF loading
-//
+
 int __attribute__((section(".stager_shellcode$1")))  stager(SCEFunctions* functions)
 {
     pthread_t thread;
