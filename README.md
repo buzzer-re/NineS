@@ -2,13 +2,7 @@
 
 9S is an ELF injector for the PS5 that utilizes the JIT memory space (which is executable) to manually map an ELF file. This method is necessary because allocating executable memory with functions like `mmap` is not possible.
 
-## How this works
-
-
-Using kernel R/W primitives, the injector elevates its own privileges to attach to remote processes via `ptrace`. This allows for the invocation of remote functions and syscalls in the target process. 
-
-Since not every process supports JIT, the target process is also elevated before allocating JIT memory. Once the ELF is mapped, a remote thread is created within the target process that points to the ELF entry point.
-
+For more details on how it works, I’ve documented the internals [here](https://reversing.codes/posts/PlayStation-5-ELF-Injection/).
 
 ## Building
 
