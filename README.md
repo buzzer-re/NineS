@@ -1,8 +1,6 @@
 # YoRHa No.9 Type S -- 9S
 
-9S is an ELF injector for the PS5 that utilizes the JIT memory space (which is executable) to manually map an ELF file. This method is necessary because allocating executable memory with functions like `mmap` is not possible.
-
-For more details on how it works, I’ve documented the internals [here](https://reversing.codes/posts/PlayStation-5-ELF-Injection/).
+9S is an ELF injector for the PS5 that is able to manually map an ELF file inside a remote process and execute it in a remote thread.  For more details on how it works, I’ve documented the internals [here](https://reversing.codes/posts/PlayStation-5-ELF-Injection/).
 
 ## Building
 
