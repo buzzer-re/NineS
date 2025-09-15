@@ -25,6 +25,8 @@ int start_server(int port, void(*callback)(int fd, void* data, ssize_t data_size
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
 
+    setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
+
     if (bind(sock_fd, (struct sockaddr*) &addr, sizeof(addr)) < 0)
     {
         return -1;

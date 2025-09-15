@@ -7,7 +7,6 @@ void* remote_pthread_join = NULL;
 SCEFunctions sce_functions = {0};
 
 
-
 int __attribute__((section(".stager_shellcode$1")))  stager(SCEFunctions* functions)
 {
     pthread_t thread;
@@ -67,8 +66,6 @@ void init_remote_function_pointers(pid_t pid)
     sce_functions.sceKernelDebugOutText = (void*) pt_resolve(pid, nid);
     sce_functions.pthread_create_ptr = (void*) remote_pthread_create;
 
-
-
 }
 
 
@@ -80,7 +77,6 @@ int inject_elf(struct proc* proc, void* elf)
     int status = true;
     uint64_t sce_ptr_mem;
     uint64_t shellcode_size = get_shellcode_size();
-    uint8_t* original_code = malloc(shellcode_size);
 
     if (pt_attach(proc->pid) < 0)
     {
@@ -107,39 +103,44 @@ int inject_elf(struct proc* proc, void* elf)
     printf("[+] ELF entrypoint: %#02lx [+]\n[+] Payload Args: %#02lx [+]\n", entry, args);
 
     //  
-    // Copy shellcode thread parameters
+    // Copy shellcode thread parameters & boot code
     //
-    
-    module_info_t* mod = get_module_handle(proc->pid, "eboot.bin");
     sce_functions.elf_main = (void*) entry;
     sce_functions.payload_args = (void*) args;
 
+
+    uint64_t bootstrap = pt_mmap(proc->pid, 0, shellcode_size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    
+    if (!bootstrap)
+    {
+        printf("Unable to allocate bootstrap code, injection aborted!\n");
+        goto detach;
+    } 
+
     //
-    // Store original .init code and overwrite with the stager
+    // Make it executable
     //
-    mdbg_copyout(proc->pid, mod->init, original_code, shellcode_size);
-    mdbg_copyin(proc->pid, stager, mod->init, shellcode_size);
+    kernel_mprotect(proc->pid, bootstrap, shellcode_size, PROT_EXEC|PROT_WRITE|PROT_READ);
+    pt_copyin(proc->pid, stager, bootstrap, shellcode_size);
+
+    printf("[+] Bootstrap code allocated at %#02lx [+]\n", bootstrap);
     //
     // Write the sce functions data
     //
-    sce_ptr_mem = pt_call(proc->pid, remote_malloc, sizeof(SCEFunctions));
-    mdbg_copyin(proc->pid, &sce_functions, sce_ptr_mem, sizeof(SCEFunctions));
+    sce_ptr_mem = pt_mmap(proc->pid, 0, sizeof(sce_functions), PROT_READ|PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    pt_copyin(proc->pid, &sce_functions, sce_ptr_mem, sizeof(SCEFunctions));
 
     puts("[+] Triggering entrypoint... [+]\n");
     //
     // Call until hit a breakpoint
     //
-    pt_call2(proc->pid, mod->init, sce_ptr_mem);
-    // mdbg_copyin(proc->pid, original_code, mod->init, shellcode_size);
-
-    pt_detach(proc->pid);
-
-    puts("[+] ELF injection finished! [+]");
-    //
-    // Restore stager
-    //
+    pt_call2(proc->pid, bootstrap, sce_ptr_mem);
 
 detach:
+    pt_detach(proc->pid, 0);
+
+    puts("[+] ELF injection finished! [+]");
+
     puts("[+] Detached [+]");
 exit:
     return status;
@@ -174,7 +175,7 @@ module_info_t* load_remote_library(pid_t pid, const char* library_path, const ch
     //
     // Now we detach, sleep a little and attach again
     //
-    pt_detach(pid);
+    pt_detach(pid, 0);
 
     int retries = 0;
     int max_retries = 100;
