@@ -65,6 +65,7 @@ void init_remote_function_pointers(pid_t pid)
     nid_encode("sceKernelDebugOutText", nid);
     sce_functions.sceKernelDebugOutText = (void*) pt_resolve(pid, nid);
     sce_functions.pthread_create_ptr = (void*) remote_pthread_create;
+    
 
 }
 
@@ -134,7 +135,19 @@ int inject_elf(struct proc* proc, void* elf)
     //
     // Call until hit a breakpoint
     //
+    struct proc_creds* orig_creds = jailbreak_process(proc->pid);
+
+    if (!orig_creds)
+    {
+        puts("Unable to jailbreak process %d, this can cause issues with the SDK, aborting injection...");
+        status = 0;
+        goto detach;
+    }
+
     pt_call2(proc->pid, bootstrap, sce_ptr_mem);
+    sleep(1); // timeout for the SDK's CRT
+    jail_process(proc->pid, orig_creds);
+    free(orig_creds);
 
 detach:
     pt_detach(proc->pid, 0);

@@ -1,6 +1,5 @@
 #include "../include/ucred.h"
 
-#define UCRED_SIZE 0x200
 
 //
 // Search process entr on the allproc linked list
@@ -30,20 +29,22 @@ void set_ucred_to_debugger()
     }
 }
 
-uint8_t* jailbreak_process(pid_t pid)
+struct proc_creds* jailbreak_process(pid_t pid)
 {
-    uint8_t* backup_ucred = malloc(UCRED_SIZE);
+    struct proc_creds* proc_creds = malloc(sizeof(struct proc_creds));
 
-    if (!backup_ucred)
+    if (!proc_creds)
     {
         return NULL;
     }
+
+    memset(proc_creds, 0, sizeof(struct proc_creds));
 
 	uintptr_t ucred = kernel_get_proc_ucred(pid);
     //
     // Backup it
     //
-    kernel_copyout(ucred, backup_ucred, UCRED_SIZE);
+    kernel_copyout(ucred, proc_creds->ucred, UCRED_SIZE);
 
 	uint32_t uid_store = 0;
 	uint32_t ngroups_store = 0;
@@ -53,7 +54,7 @@ uint8_t* jailbreak_process(pid_t pid)
     kernel_copyin(&uid_store, ucred + 0x04, 0x4);
     kernel_copyin(&uid_store, ucred + 0x08, 0x4);
     kernel_copyin(&uid_store, ucred + 0x0C, 0x4);
-    kernel_copyin(&ngroups_store, ucred + 0x0C, 0x4);
+    kernel_copyin(&ngroups_store, ucred + 0x10, 0x4);
     kernel_copyin(&uid_store, ucred + 0x14, 0x4);
 
 
@@ -63,16 +64,25 @@ uint8_t* jailbreak_process(pid_t pid)
 	kernel_copyin(&caps_store, ucred + 0x68, 0x8);		 // cr_sceCaps[1]
 	kernel_copyin(attr_store, ucred + 0x83, 0x1);		 // cr_sceAttr[0]
 
-    return backup_ucred;
+    //
+    // escape sandbox
+    // 
+
+    proc_creds->original_rootdir = kernel_get_proc_rootdir(pid);
+    
+    kernel_set_proc_rootdir(pid, kernel_get_root_vnode());
+
+    return proc_creds;
 }
 
 
 //
 // Restore
 //
-void jail_process(pid_t pid, uint8_t* old_ucred)
+void jail_process(pid_t pid, struct proc_creds* old_ucred)
 {
     uintptr_t ucred = kernel_get_proc_ucred(pid);
-    kernel_copyin(old_ucred, ucred, UCRED_SIZE);
+    kernel_copyin(old_ucred->ucred, ucred, UCRED_SIZE);
+    kernel_set_proc_rootdir(pid, old_ucred->original_rootdir);
 }
 
